@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>식단표 · 식단/낯선 음식</title>
+  <style>
+    :root{
+      --bg1:#0b1e3a;   --bg2:#2a3f7a;   --bg3:#6a63b6;
+      --panel:#111827f2; --card:#0f172a99; --soft:#0f172acc;
+      --text:#eef2ff;  --muted:#c7d2fe;  --border:#ffffff1f;
+      --chip:#ffffff14;--primary:#8ab7ff;--primary-2:#6aa0ff;
+      --accent:#d6a4ff;--pink:#ff9ecb;  --shadow:0 12px 30px rgba(0,0,0,.35);
+      --radius:16px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; padding:24px; color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "맑은 고딕", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 90% -10%, var(--bg3) 0%, transparent 65%),
+        radial-gradient(900px 600px at -20% 10%, #5ab0ff33 0%, transparent 60%),
+        linear-gradient(160deg, var(--bg1), var(--bg2) 55%);
+      background-repeat: no-repeat, no-repeat, no-repeat;
+      background-attachment: fixed, fixed, fixed;
+    }
+
+    .container{max-width:1040px; margin:0 auto}
+    .card{background: linear-gradient(180deg, var(--panel), #0b1226cc); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:24px; backdrop-filter: blur(8px);}    
+
+    .hero{display:flex; align-items:center; gap:16px; flex-wrap:wrap;}
+    h1{margin:0 0 6px; font-size:28px; font-weight:900; letter-spacing:.2px}
+    .sub{margin:0; color:var(--muted)}
+
+    .menu{display:grid; gap:12px; grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:16px}
+    .menu button{appearance:none; border:1px solid var(--border); background: radial-gradient(60% 120% at 20% 0%, #9ec7ff33 0%, transparent 50%), linear-gradient(180deg, #1a2a57cc, #152047cc); color:var(--text); font-weight:600; padding:12px 14px; border-radius:12px; cursor:pointer; box-shadow:0 8px 18px rgba(0,0,0,.28); transition: transform .06s ease, filter .18s ease, box-shadow .18s ease;}
+    .menu button:hover{filter:brightness(1.06); box-shadow:0 10px 22px rgba(0,0,0,.34)}
+    .menu button:active{transform:translateY(1px)}
+    .menu button:focus-visible{outline:2px solid var(--accent); outline-offset:2px; box-shadow:0 0 0 6px #d6a4ff22}
+
+    .section{margin-top:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(180deg, var(--card), #0b132caa)}
+    .bar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap}
+    .pill{display:inline-block; padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:var(--chip); color:#dbeafe; font-weight:800; font-size:12px}
+    .draw{appearance:none; border:1px solid var(--border); background: linear-gradient(180deg, var(--primary), var(--primary-2)); color:#0b1a38; font-weight:900; padding:10px 14px; border-radius:10px; cursor:pointer; box-shadow:0 5px 14px rgba(106,160,255,.35);}    
+    .draw:hover{filter:brightness(1.05)}
+    .result{font-size:24px; font-weight:900; margin:8px 0 0}
+    ul.taglist{list-style:none; display:flex; flex-wrap:wrap; gap:8px; padding:0; margin:8px 0 0}
+    ul.taglist li{padding:6px 10px; border-radius:999px; background:#ffffff1a; border:1px solid var(--border); color:#e5e9ff; font-weight:700; font-size:12px}
+    .divider{height:1px; background:var(--border); margin:14px 0}
+
+    .pop{animation:pop .35s cubic-bezier(.2,1,.2,1)}
+    @keyframes pop{0%{transform:scale(.85);opacity:0}70%{transform:scale(1.06);opacity:1}100%{transform:scale(1)}}
+
+    /* 정답 가림막 */
+    .answer-wrap{margin-top:8px}
+    .answer-mask{display:inline-block; padding:8px 10px; border-radius:10px; background:#00000055; border:1px dashed #ffffff44; cursor:pointer; user-select:none; color:#ffffff}
+    .answer-mask .hint{opacity:.9; font-weight:700; font-size:12px; margin-right:8px; color:#ffffff}
+    .answer-mask.revealed{background:#00000022; border-style:solid}
+    .answer-text{font-weight:800; color:#ffffff}
+
+    @media (max-width:640px){ body{ background-attachment: scroll, scroll, scroll; } }
+    @media (prefers-reduced-motion: reduce){ .pop{animation:none} }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="hero">
+        <div>
+          <h1>식단표</h1>
+          <p class="sub">식사는 규칙적으로 3끼, 간식 · 야식 피하기, 고기 · 채소 골고루, 자극적 · 기름진 · 익히지 않은 · 낯선 음식 피하기</p>
+        </div>
+      </div>
+
+      <div class="menu" id="menu">
+        <button data-key="jokbo">식단</button>
+        <button data-key="non_jokbo">낯선 음식</button>
+      </div>
+      <div id="sections"></div>
+    </div>
+  </div>
+
+  <script>
+  // =========================
+  // 1) 원본 57개 세트 (그대로)
+  // =========================
+  const SETS = {
+    case1:["소화불량(만성복통)","질분비물","질출혈","배뇨이상","소변찔끔증","목통증","허리통증","발열","고혈압","두통","기분변화","객혈"],
+    case2:["다뇨","핍뇨","가슴통증","피로","토혈","어지럼","관절통증(붓기)","기침","불안"],
+    case3:["구토","두근거림","붉은색소변","체중감소","수면장애","경련","떨림운동이상","월경이상(무월경)","월경통"],
+    case4:["기억력저하","근력감각이상","실신","쉽게멍이듦","급성복통","호흡곤란","피부발진","유방통","유방덩이"],
+    case5:["혈변","변비","설사","황달","이상지질혈증","체중증가","콧물코막힘","의식장애"],
+    counsel:["나소전","성장발달","음주","금연","산전진찰","가정폭력","성폭력","예방접종","물질오남용","자살"]
+  };
+  const ORIGINAL = [
+    ...SETS.case1, ...SETS.case2, ...SETS.case3, ...SETS.case4, ...SETS.case5, ...SETS.counsel
+  ];
+
+  // =========================
+  // 2) 식단(=족보) 정의 (36개)
+  // =========================
+  const JOKBO = [
+    {symptom:"급성복통", answer:"충수돌기염, 췌장염"},
+    {symptom:"변비", answer:"기능성변비(대장암?)"},
+    {symptom:"황달", answer:"알코올성간염"},
+    {symptom:"가슴통증", answer:"심막염"},
+    {symptom:"실신", answer:"TIA"},
+    {symptom:"두근거림", answer:"PSVT, 갑상샘(크롬?)"},
+    {symptom:"고혈압", answer:"신부전"},
+    {symptom:"기침", answer:"COPD"},
+    {symptom:"객혈", answer:"TB"},
+    {symptom:"호흡곤란", answer:"COPD, 공황"},
+    {symptom:"다뇨", answer:"당뇨, 요붕증"},
+    {symptom:"핍뇨", answer:"약물"},
+    {symptom:"혈뇨", answer:"BPH, 방광염", mapTo:"붉은색소변"},
+    {symptom:"배뇨이상", answer:"BPH"},
+    {symptom:"발열", answer:"말라리아, 쯔쯔가무시"},
+    {symptom:"멍", answer:"ITP", mapTo:"쉽게멍이듦"},
+    {symptom:"피로", answer:"수면무호흡(하루주기율동수면장애)"},
+    {symptom:"체중감소", answer:"DM"},
+    {symptom:"기분변화", answer:"MDD"},
+    {symptom:"불안", answer:"공황"},
+    {symptom:"수면장애", answer:"하루주기율동수면장애"},
+    {symptom:"기억력저하", answer:"MCI"},
+    {symptom:"어지럼", answer:"소뇌경색"},
+    {symptom:"두통", answer:"대상포진??"},
+    {symptom:"경련", answer:"청소년근간대"},
+    {symptom:"떨림운동이상", answer:"소뇌경색"},
+    {symptom:"유방덩이", answer:"선종, 낭종"},
+    {symptom:"질출혈", answer:"자궁경부염(자궁경부암?)"},
+    {symptom:"월경과다", answer:"Ectopic, 자궁근종"},
+    {symptom:"산전진찰", answer:"전자간증"},
+    {symptom:"성장발달", answer:"체질성성장지연"},
+    {symptom:"금연", answer:"금연"},
+    {symptom:"나소전", answer:"폐암 4기 간전이"},
+    {symptom:"가정폭력", answer:"가정폭력"},
+    {symptom:"성폭력", answer:"성폭력"},
+    {symptom:"자살", answer:"자살"}
+  ];
+
+  // =========================
+  // 3) 낯선 음식 = 원본 57개 - (식단에서 원본에 존재하는 항목들)
+  // =========================
+  const jokboRemovalKeys = new Set(JOKBO.map(j => j.mapTo || j.symptom));
+  const NON_JOKBO = ORIGINAL.filter(x => !jokboRemovalKeys.has(x));
+
+  // =========================
+  // 4) 공통 상태/로직 (비복원)
+  // =========================
+  const state = {};
+  function createState(key, pool){
+    state[key] = { remaining: pool.slice(), total: pool.length, history: [] };
+    return state[key];
+  }
+  function getState(key){ return state[key]; }
+  function clearState(key){ delete state[key]; }
+
+  function draw(key, pool){
+    const st = getState(key) || createState(key, pool);
+    if(st.remaining.length === 0){
+      st.remaining = pool.slice();
+      st.history = [];
+    }
+    const idx = Math.floor(Math.random() * st.remaining.length);
+    const picked = st.remaining.splice(idx,1)[0];
+    st.history.push(picked);
+    return { picked, remaining: st.remaining.slice(), total: st.total, history: st.history.slice() };
+  }
+
+  // =========================
+  // 5) 섹션 렌더링
+  // =========================
+  const titleMap = { jokbo:'식단', non_jokbo:'낯선 음식' };
+
+  function toggleSection(key){
+    const wrapId = 'sec-' + key;
+    let wrap = document.getElementById(wrapId);
+    if(wrap){ wrap.remove(); clearState(key); return; }
+
+    const pool = (key === 'jokbo') ? JOKBO.map(j=>j.symptom) : NON_JOKBO;
+
+    createState(key, pool);
+
+    const resultId = 'result-' + key;
+    const remainId = 'remain-' + key;
+    const listId   = 'list-' + key;
+    const histId   = 'hist-' + key;
+
+    wrap = document.createElement('section');
+    wrap.className = 'section';
+    wrap.id = wrapId;
+
+    wrap.innerHTML = `
+      <div class="bar">
+        <div>
+          <h2>${titleMap[key]}</h2>
+          <p class="sub">비복원 추첨 · 전부 소진 시 자동 리셋${key==='jokbo' ? ' · 정답은 클릭해서 확인' : ''}</p>
+        </div>
+        <div><button class="draw" id="draw-${key}">추첨</button></div>
+      </div>
+
+      <div class="bar" style="margin-top:6px">
+        <span class="pill">남은 개수</span>
+        <span class="pill" id="${remainId}"></span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="pill" style="background:#ff9ecb22;border-color:#ff9ecb44;color:#ffd4e6">결과</div>
+        <div class="result" id="${resultId}" aria-live="polite">—</div>
+        ${key==='jokbo' ? `<div class="answer-wrap" id="answer-${key}"></div>` : ''}
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="pill" style="background:#9ec7ff22;border-color:#9ec7ff44;color:#d7e7ff">남은 목록</div>
+        <ul class="taglist" id="${listId}"></ul>
+      </div>
+
+      <div class="divider"></div>
+
+      <div>
+        <div class="pill" style="background:#d6a4ff22;border-color:#d6a4ff44;color:#eddcff">나왔던 목록</div>
+        <ul class="taglist" id="${histId}"></ul>
+      </div>
+    `;
+
+    document.getElementById('sections').appendChild(wrap);
+    renderAll(key, pool);
+
+    document.getElementById('draw-' + key).addEventListener('click', function(){
+      const res = draw(key, pool);
+      const r = document.getElementById(resultId);
+      r.textContent = res.picked;
+      r.classList.remove('pop'); void r.offsetWidth; r.classList.add('pop');
+      document.getElementById(remainId).textContent = res.remaining.length + ' / ' + res.total;
+      renderList(listId, res.remaining);
+      renderList(histId, res.history);
+
+      if(key === 'jokbo'){
+        const ansWrap = document.getElementById('answer-' + key);
+        ansWrap.innerHTML = '';
+
+        const symptom = res.picked;
+        const item = JOKBO.find(j => j.symptom === symptom);
+        const answerText = item ? item.answer : '';
+
+        const mask = document.createElement('button');
+        mask.type = 'button';
+        mask.className = 'answer-mask';
+        mask.setAttribute('aria-pressed', 'false');
+        mask.innerHTML = `<span class="hint">정답보기</span><span class="answer-text" style="filter: blur(6px);">${answerText}</span>`;
+
+        mask.addEventListener('click', () => {
+          const txt = mask.querySelector('.answer-text');
+          const hint = mask.querySelector('.hint');
+          txt.style.filter = 'none';
+          hint.textContent = '정답';
+          mask.classList.add('revealed');
+          mask.setAttribute('aria-pressed', 'true');
+        });
+
+        ansWrap.appendChild(mask);
+      }
+    });
+  }
+
+  function renderAll(key, pool){
+    const st = getState(key) || createState(key, pool);
+    document.getElementById('remain-' + key).textContent = st.remaining.length + ' / ' + st.total;
+    renderList('list-' + key, st.remaining);
+    renderList('hist-' + key, st.history);
+  }
+
+  function renderList(listId, arr){
+    const ul = document.getElementById(listId);
+    ul.innerHTML = '';
+    arr.forEach(x => {
+      const li = document.createElement('li');
+      li.textContent = x;
+      ul.appendChild(li);
+    });
+  }
+
+  document.getElementById('menu').addEventListener('click', function(e){
+    const btn = e.target.closest('button[data-key]');
+    if(!btn) return;
+    toggleSection(btn.getAttribute('data-key'));
+  });
+  </script>
+</body>
+</html>
