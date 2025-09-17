@@ -68,7 +68,7 @@
       <div class="hero">
         <div>
           <h1>식단표</h1>
-          <p class="sub">식사는 규칙적으로 3끼, 간식 · 야식 피하기, 고기 · 채소 골고루, 자극적 · 기름진 · 익히지 않은 · 낯선 음식 피하기</p>
+          <p class="sub">식사는 규칙적으로 3끼, 고기·채소 골고루, 간식·야식·자극적·기름진·익히지 않은·낯선 음식은 피하기</p>
         </div>
       </div>
 
@@ -227,7 +227,21 @@
       </div>
     `;
 
-    document.getElementById('sections').appendChild(wrap);
+    (function(){
+      const sectionsEl = document.getElementById('sections');
+      if(key === 'jokbo'){
+        // 식단 섹션은 항상 맨 위
+        sectionsEl.insertBefore(wrap, sectionsEl.firstChild);
+      } else {
+        // 낯선 음식 섹션은 항상 식단 섹션 바로 아래
+        const jokboEl = document.getElementById('sec-jokbo');
+        if(jokboEl && jokboEl.parentNode === sectionsEl){
+          sectionsEl.insertBefore(wrap, jokboEl.nextSibling);
+        } else {
+          sectionsEl.appendChild(wrap);
+        }
+      }
+    })();
     renderAll(key, pool);
 
     document.getElementById('draw-' + key).addEventListener('click', function(){
